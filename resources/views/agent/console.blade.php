@@ -253,20 +253,17 @@
 @endsection
 
 @push('scripts')
-{{-- SIP.js CDN with fallback --}}
+{{-- SIP.js local bundle (0.21.2) --}}
+<script src="{{ asset('js/sip.js') }}"></script>
 <script>
-window._sipReady = new Promise(function(resolve) {
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/sip.js@0.21.2/lib/index.min.js';
-    s.onload = function() { window._sipLoaded = true; resolve(true); };
-    s.onerror = function() {
-        window._sipLoaded = false;
-        document.getElementById('sipWarning')?.classList.add('show');
-        console.warn('SIP.js failed to load from CDN.');
-        resolve(false);
-    };
-    document.head.appendChild(s);
-});
+window._sipReady = Promise.resolve(typeof SIP !== 'undefined');
+if (typeof SIP === 'undefined') {
+    window._sipLoaded = false;
+    document.getElementById('sipWarning')?.classList.add('show');
+    console.warn('SIP.js failed to load.');
+} else {
+    window._sipLoaded = true;
+}
 </script>
 <script src="{{ asset('js/sip-account-manager.js') }}"></script>
 <script>
