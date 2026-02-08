@@ -1,12 +1,56 @@
 @extends('layouts.app')
 @section('title', 'Edit Disposition')
+@section('breadcrumb')
+<ol class="breadcrumb mb-0">
+    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('admin.dispositions.index') }}">Dispositions</a></li>
+    <li class="breadcrumb-item active">Edit</li>
+</ol>
+@endsection
 @section('content')
-<h1>Edit {{ $disposition->name }}</h1>
-<form method="POST" action="{{ route('admin.dispositions.update', $disposition) }}">
-    @csrf @method('PUT')
-    <div><label>Company ID</label><input type="number" name="company_id" value="{{ $disposition->company_id }}" required></div>
-    <div><label>Name</label><input type="text" name="name" value="{{ $disposition->name }}" required></div>
-    <div><label>Color</label><input type="color" name="color" value="{{ $disposition->color }}"></div>
-    <button type="submit">Update</button>
-</form>
+<div class="page-header">
+    <h1>Edit Disposition: {{ $disposition->name }}</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card form-card">
+            <div class="card-header"><i class="bi bi-tag me-2"></i>Disposition Details</div>
+            <div class="card-body">
+                <form method="POST" action="{{ route('admin.dispositions.update', $disposition) }}">
+                    @csrf
+                    @method('PUT')
+                    <div class="mb-3">
+                        <label for="company_id" class="form-label fw-semibold">Company <span class="text-danger">*</span></label>
+                        <select class="form-select @error('company_id') is-invalid @enderror" id="company_id" name="company_id" required>
+                            <option value="">Select Company</option>
+                            @foreach($companies as $company)
+                                <option value="{{ $company->id }}" {{ old('company_id', $disposition->company_id) == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('company_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label fw-semibold">Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $disposition->name) }}" required>
+                        @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="mb-3">
+                        <label for="color" class="form-label fw-semibold">Color</label>
+                        <input type="color" class="form-control form-control-color @error('color') is-invalid @enderror" id="color" name="color" value="{{ old('color', $disposition->color) }}">
+                        @error('color')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1" {{ old('is_active', $disposition->is_active) ? 'checked' : '' }}>
+                        <label class="form-check-label fw-semibold" for="is_active">Active</label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i> Update Disposition</button>
+                        <a href="{{ route('admin.dispositions.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
