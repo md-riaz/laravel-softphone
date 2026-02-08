@@ -45,7 +45,7 @@
         <div class="form-group">
             <label class="form-label">Color</label>
             <p>
-                <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background-color:{{ preg_match('/^#[0-9a-fA-F]{3,8}$/', $disposition->color) ? $disposition->color : '#6c757d' }};vertical-align:middle;margin-right:8px;"></span>
+                <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background-color:{{ e(preg_match('/^#[0-9a-fA-F]{3,8}$/', $disposition->color) ? $disposition->color : '#6c757d') }};vertical-align:middle;margin-right:8px;"></span>
                 {{ $disposition->color }}
             </p>
         </div>

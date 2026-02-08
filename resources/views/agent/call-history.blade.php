@@ -57,7 +57,7 @@
                     <td>{{ $call->started_at?->format('M d, Y H:i') ?? '-' }}</td>
                     <td>
                         @forelse($call->dispositions as $disposition)
-                            <span class="badge" style="background-color: {{ preg_match('/^#[0-9a-fA-F]{3,8}$/', $disposition->color) ? $disposition->color : '#6c757d' }}; color: #fff;">{{ $disposition->name }}</span>
+                            <span class="badge" style="background-color: {{ e(preg_match('/^#[0-9a-fA-F]{3,8}$/', $disposition->color) ? $disposition->color : '#6c757d') }}; color: #fff;">{{ $disposition->name }}</span>
                         @empty
                             <span style="color:var(--muted-foreground);">-</span>
                         @endforelse

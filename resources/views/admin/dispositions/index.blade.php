@@ -34,7 +34,7 @@
                 @forelse($dispositions as $d)
                 <tr>
                     <td>
-                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:{{ preg_match('/^#[0-9a-fA-F]{3,8}$/', $d->color) ? $d->color : '#6c757d' }};vertical-align:middle;margin-right:8px;"></span>
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background-color:{{ e(preg_match('/^#[0-9a-fA-F]{3,8}$/', $d->color) ? $d->color : '#6c757d') }};vertical-align:middle;margin-right:8px;"></span>
                         <a href="{{ route('admin.dispositions.show', $d) }}">{{ $d->name }}</a>
                     </td>
                     <td>{{ $d->company->name ?? '-' }}</td>
