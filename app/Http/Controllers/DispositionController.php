@@ -17,7 +17,8 @@ class DispositionController extends Controller
 
     public function create()
     {
-        return view('admin.dispositions.create');
+        $companies = \App\Models\Company::where('is_active', true)->get();
+        return view('admin.dispositions.create', compact('companies'));
     }
 
     public function store(StoreDispositionRequest $request)
@@ -33,7 +34,8 @@ class DispositionController extends Controller
 
     public function edit(Disposition $disposition)
     {
-        return view('admin.dispositions.edit', compact('disposition'));
+        $companies = \App\Models\Company::where('is_active', true)->get();
+        return view('admin.dispositions.edit', compact('disposition', 'companies'));
     }
 
     public function update(StoreDispositionRequest $request, Disposition $disposition)

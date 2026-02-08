@@ -23,8 +23,9 @@ class CallAnalyticController extends Controller
         }
 
         $analytics = $query->orderByDesc('date')->paginate(30);
+        $companies = \App\Models\Company::where('is_active', true)->get();
 
-        return view('admin.analytics.index', compact('analytics'));
+        return view('admin.analytics.index', compact('analytics', 'companies'));
     }
 
     public function reports(Request $request)
@@ -37,10 +38,14 @@ class CallAnalyticController extends Controller
         if ($request->filled('date_to')) {
             $query->where('date', '<=', $request->input('date_to'));
         }
+        if ($request->filled('company_id')) {
+            $query->where('company_id', $request->input('company_id'));
+        }
 
         $analytics = $query->orderByDesc('date')->paginate(30);
+        $companies = \App\Models\Company::where('is_active', true)->get();
 
-        return view('admin.reports.index', compact('analytics'));
+        return view('admin.reports.index', compact('analytics', 'companies'));
     }
 
     public function summary(Request $request): JsonResponse

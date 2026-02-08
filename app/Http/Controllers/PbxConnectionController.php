@@ -16,7 +16,8 @@ class PbxConnectionController extends Controller
 
     public function create()
     {
-        return view('admin.pbx-connections.create');
+        $companies = \App\Models\Company::where('is_active', true)->get();
+        return view('admin.pbx-connections.create', compact('companies'));
     }
 
     public function store(StorePbxConnectionRequest $request)
@@ -33,7 +34,8 @@ class PbxConnectionController extends Controller
 
     public function edit(PbxConnection $pbxConnection)
     {
-        return view('admin.pbx-connections.edit', compact('pbxConnection'));
+        $companies = \App\Models\Company::where('is_active', true)->get();
+        return view('admin.pbx-connections.edit', compact('pbxConnection', 'companies'));
     }
 
     public function update(StorePbxConnectionRequest $request, PbxConnection $pbxConnection)

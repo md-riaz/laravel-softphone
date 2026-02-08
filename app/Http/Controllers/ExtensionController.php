@@ -17,7 +17,9 @@ class ExtensionController extends Controller
 
     public function create()
     {
-        return view('admin.extensions.create');
+        $pbxConnections = \App\Models\PbxConnection::where('is_active', true)->with('company')->get();
+        $users = \App\Models\User::where('role', 'agent')->get();
+        return view('admin.extensions.create', compact('pbxConnections', 'users'));
     }
 
     public function store(StoreExtensionRequest $request)
@@ -34,7 +36,9 @@ class ExtensionController extends Controller
 
     public function edit(Extension $extension)
     {
-        return view('admin.extensions.edit', compact('extension'));
+        $pbxConnections = \App\Models\PbxConnection::where('is_active', true)->with('company')->get();
+        $users = \App\Models\User::where('role', 'agent')->get();
+        return view('admin.extensions.edit', compact('extension', 'pbxConnections', 'users'));
     }
 
     public function update(StoreExtensionRequest $request, Extension $extension)
