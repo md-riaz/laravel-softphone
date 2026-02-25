@@ -45,6 +45,10 @@
     .call-info-row { display: flex; justify-content: space-between; align-items: flex-start; }
     .ext-card-row { display: flex; justify-content: space-between; align-items: center; }
     .ext-card-toggle { display: flex; align-items: center; gap: 0.5rem; }
+    .dtmf-row { display: flex; gap: 0.25rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .dtmf-row button { min-width: 2rem; font-size: 0.75rem; padding: 0.25rem 0.4rem; }
+    .ext-error-badge { display: none; }
+    .ext-error-badge.show { display: inline; }
 </style>
 @endpush
 
@@ -103,6 +107,7 @@
                                     <span class="badge badge-secondary">Inactive</span>
                                 @endif
                             </span>
+                            <span id="ext-error-{{ $ext->id }}" class="badge badge-danger ext-error-badge" title="Registration error"></span>
                             <label style="position:relative;display:inline-block;width:36px;height:20px;">
                                 <input class="checkbox-input ext-toggle" type="checkbox"
                                        id="ext-toggle-{{ $ext->id }}"
@@ -382,6 +387,12 @@ if (typeof SIP === 'undefined') {
                     case 'hangup': this._endCall(uuid); break;
                     case 'hold':   this._toggleHold(uuid); break;
                     case 'mute':   this._toggleMute(uuid); break;
+                    case 'dtmf': {
+                        const digit = btn.dataset.digit;
+                        if (digit && this.sipManager) { this.sipManager.sendDtmf(uuid, digit); }
+                        this._appendDigit(digit);
+                        break;
+                    }
                 }
             });
 
@@ -409,9 +420,17 @@ if (typeof SIP === 'undefined') {
             }
             this.sipManager = new SIPAccountManager({ userId: USER_ID, apiHeaders: API.headers });
             this.sipManager.onCallStateChange = (uuid, state, data) => { this._handleSipCallState(uuid, state, data); };
-            this.sipManager.onRegistrationChange = (extId, registered) => { this._updateExtensionStatus(extId, true, registered); };
-            this.sipManager.onError = (extId, error) => { console.warn(`SIP error [ext ${extId}]:`, error.message || error); };
+            this.sipManager.onRegistrationChange = (extId, registered) => {
+                this._updateExtensionStatus(extId, true, registered);
+                if (registered) this._updateDialerExtensionOptions();
+            };
+            this.sipManager.onError = (extId, error) => {
+                console.warn(`SIP error [ext ${extId}]:`, error.message || error);
+                this._showExtensionError(extId, error.message || 'SIP error');
+            };
             document.querySelectorAll('.extension-card[data-active="1"]').forEach(card => { this._registerExtension(card.dataset); });
+
+            window.addEventListener('beforeunload', () => { this.sipManager?.destroy(); });
         }
 
         _appendDigit(digit) {
@@ -508,6 +527,20 @@ if (typeof SIP === 'undefined') {
                 if (registered) { statusEl.innerHTML = '<span class="badge badge-primary">Registered</span>'; }
                 else if (active) { statusEl.innerHTML = '<span class="badge badge-success">Active</span>'; }
                 else { statusEl.innerHTML = '<span class="badge badge-secondary">Inactive</span>'; }
+            }
+            // Clear error badge on status change
+            this._showExtensionError(extId, null);
+        }
+
+        _showExtensionError(extId, message) {
+            const el = document.getElementById(`ext-error-${extId}`);
+            if (!el) return;
+            if (message) {
+                el.textContent = 'Error';
+                el.title = message;
+                el.classList.add('show');
+            } else {
+                el.classList.remove('show');
             }
         }
 
@@ -639,6 +672,7 @@ if (typeof SIP === 'undefined') {
                 const extCard = document.getElementById(`ext-card-${call.extensionId}`);
                 const extName = extCard?.dataset.extName || `Ext ${call.extensionId}`;
                 const phoneIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle;margin-right:2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>';
+                const dtmfButtons = call.answered ? this._buildDtmfButtons(uuid) : '';
                 html += `
                 <div class="active-call-card ${statusClass}" id="call-${uuid}">
                     <div class="call-info-row">
@@ -661,9 +695,18 @@ if (typeof SIP === 'undefined') {
                             <button class="btn btn-sm btn-danger" data-action="hangup" data-uuid="${uuid}" title="Hangup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 3.75L18 6m0 0l2.25 2.25M18 6l2.25-2.25M18 6l-2.25 2.25m1.5 13.5c-8.284 0-15-6.716-15-15v-2.25A2.25 2.25 0 014.5 2.25h1.372c.516 0 .966.351 1.091.852l1.106 4.423c.11.44-.055.902-.417 1.173l-1.293.97a1.062 1.062 0 00-.38 1.21 12.035 12.035 0 007.143 7.143c.441.162.928-.004 1.21-.38l.97-1.293a1.125 1.125 0 011.173-.417l4.423 1.106c.5.125.852.575.852 1.091V19.5a2.25 2.25 0 01-2.25 2.25h-2.25z" /></svg></button>
                         </div>
                     </div>
+                    ${dtmfButtons}
                 </div>`;
             }
             this.elActiveCallsList.innerHTML = html;
+        }
+
+        _buildDtmfButtons(uuid) {
+            const digits = ['1','2','3','4','5','6','7','8','9','*','0','#'];
+            const buttons = digits.map(d =>
+                `<button class="btn btn-sm btn-ghost" data-action="dtmf" data-uuid="${uuid}" data-digit="${d}" title="Send ${d}">${d}</button>`
+            ).join('');
+            return `<div class="dtmf-row">${buttons}</div>`;
         }
 
         _showWrapup(callId, call) {

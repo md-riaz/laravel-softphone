@@ -42,6 +42,12 @@ class SIPAccountManager {
         /** @type {HTMLAudioElement} Remote audio playback element */
         this.remoteAudio = this._createAudioElement('sip-remote-audio');
 
+        /** @type {HTMLAudioElement} Ringtone playback element for incoming calls */
+        this.ringtoneAudio = this._createAudioElement('ringtone-audio');
+
+        /** @type {number} Count of currently ringing inbound calls */
+        this._ringingCount = 0;
+
         /** @type {function|null} Callback: (callUUID, state, data) => void */
         this.onCallStateChange = null;
 
@@ -367,6 +373,45 @@ class SIPAccountManager {
     }
 
     /**
+     * Send a DTMF digit on an active call.
+     * Uses the RTCDTMFSender when available, falling back to SIP INFO.
+     *
+     * @param {string} callUUID
+     * @param {string} digit - Single DTMF character (0-9, *, #, A-D)
+     * @returns {boolean} true if sent successfully
+     */
+    sendDtmf(callUUID, digit) {
+        const call = this.activeCalls.get(callUUID);
+        if (!call || !call.session || call.session.state !== SIP.SessionState.Established) return false;
+
+        try {
+            const sdh = call.session.sessionDescriptionHandler;
+            if (sdh && sdh.peerConnection) {
+                const sender = sdh.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+                if (sender && sender.dtmf) {
+                    sender.dtmf.insertDTMF(digit, 100, 70);
+                    return true;
+                }
+            }
+
+            // Fallback: SIP INFO DTMF
+            call.session.info({
+                requestOptions: {
+                    body: {
+                        contentDisposition: 'render',
+                        contentType: 'application/dtmf-relay',
+                        content: `Signal=${digit}\r\nDuration=250`,
+                    },
+                },
+            });
+            return true;
+        } catch (error) {
+            this._emitError(call.extensionId, error);
+            return false;
+        }
+    }
+
+    /**
      * Get info for all currently active calls.
      *
      * @returns {Array<{uuid: string, direction: string, number: string, extensionId: number, startTime: Date, answered: boolean, held: boolean, muted: boolean}>}
@@ -398,6 +443,9 @@ class SIPAccountManager {
         for (const id of extensionIds) {
             await this.unregister(id);
         }
+        this._ringingCount = 0;
+        clearTimeout(this._ringToneInterval);
+        this._ringToneInterval = null;
     }
 
     // ─── Private: Session Handling ───────────────────────────────────────
@@ -426,6 +474,7 @@ class SIPAccountManager {
 
         this.activeCalls.set(callUUID, callData);
         this._setupSessionHandlers(callUUID, invitation);
+        this._startRingtone();
         this._emitCallState(callUUID, 'ringing', callData);
 
         // Record in API
@@ -449,6 +498,7 @@ class SIPAccountManager {
 
                 case SIP.SessionState.Established:
                     call.answered = true;
+                    if (call.direction === 'inbound') this._stopRingtone();
                     this._attachRemoteAudio(session);
                     this._emitCallState(callUUID, 'answered', call);
                     this._apiCallAnswered(call.callId);
@@ -456,6 +506,7 @@ class SIPAccountManager {
 
                 case SIP.SessionState.Terminated:
                     if (call.timer) clearInterval(call.timer);
+                    if (call.direction === 'inbound' && !call.answered) this._stopRingtone();
                     this._emitCallState(callUUID, 'ended', call);
                     this._apiCallEnded(call.callId);
                     this.activeCalls.delete(callUUID);
@@ -476,6 +527,76 @@ class SIPAccountManager {
         if (receiver) {
             this.remoteAudio.srcObject = new MediaStream([receiver.track]);
             this.remoteAudio.play().catch(() => {});
+        }
+    }
+
+    // ─── Private: Ringtone ───────────────────────────────────────────────
+
+    /**
+     * Start playing the ringtone for an incoming call.
+     * Uses a Web Audio oscillator if the audio element has no src set.
+     * @private
+     */
+    _startRingtone() {
+        this._ringingCount++;
+        if (this._ringingCount > 1) return; // already ringing
+
+        if (this.ringtoneAudio.src && this.ringtoneAudio.src !== window.location.href) {
+            this.ringtoneAudio.currentTime = 0;
+            this.ringtoneAudio.play().catch(() => {});
+            return;
+        }
+
+        // Fallback: generate a simple ring tone via Web Audio API
+        try {
+            if (!this._audioCtx) {
+                this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            this._playRingBurst();
+        } catch (e) { /* no audio support */ }
+    }
+
+    /**
+     * Play a single ring burst (440 Hz + 480 Hz for 2 s).
+     * @private
+     */
+    _playRingBurst() {
+        if (!this._audioCtx || this._ringingCount === 0) return;
+
+        const ctx = this._audioCtx;
+        const gain = ctx.createGain();
+        gain.gain.value = 0.25;
+        gain.connect(ctx.destination);
+
+        [440, 480].forEach(freq => {
+            const osc = ctx.createOscillator();
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 2);
+        });
+
+        // Repeat after 4 s (2 s ring + 2 s silence)
+        this._ringToneInterval = setTimeout(() => {
+            if (this._ringingCount > 0) this._playRingBurst();
+        }, 4000);
+    }
+
+    /**
+     * Stop the ringtone. Decrements the ringing counter and only stops when
+     * no more calls are ringing.
+     * @private
+     */
+    _stopRingtone() {
+        this._ringingCount = Math.max(0, this._ringingCount - 1);
+        if (this._ringingCount > 0) return; // still other ringing calls
+
+        clearTimeout(this._ringToneInterval);
+        this._ringToneInterval = null;
+
+        if (this.ringtoneAudio.src && this.ringtoneAudio.src !== window.location.href) {
+            this.ringtoneAudio.pause();
+            this.ringtoneAudio.currentTime = 0;
         }
     }
 

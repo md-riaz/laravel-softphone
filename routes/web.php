@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('internal')->name('internal.')->group(function () {
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::get('extensions', [ExtensionController::class, 'myExtensions'])->name('extensions');
+        Route::get('extensions/{extension}/sip-credentials', [ExtensionController::class, 'sipCredentials'])->name('extensions.sip-credentials');
         Route::post('extensions/{extension}/activate', [ExtensionController::class, 'activate'])->name('extensions.activate');
         Route::post('extensions/{extension}/deactivate', [ExtensionController::class, 'deactivate'])->name('extensions.deactivate');
         Route::post('calls', [CallController::class, 'store'])->name('calls.store');
