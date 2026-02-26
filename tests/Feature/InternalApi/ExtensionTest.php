@@ -89,4 +89,59 @@ class ExtensionTest extends TestCase
         $response->assertJson(['message' => 'Maximum of 6 active extensions per user.']);
         $this->assertFalse($extension->fresh()->is_active);
     }
+
+    public function test_user_cannot_activate_another_users_extension(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $extension = Extension::factory()->create([
+            'user_id' => $owner->id,
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($other)->postJson(route('internal.extensions.activate', $extension));
+
+        $response->assertStatus(403);
+        $this->assertFalse($extension->fresh()->is_active);
+    }
+
+    public function test_user_cannot_deactivate_another_users_extension(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $extension = Extension::factory()->create([
+            'user_id' => $owner->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($other)->postJson(route('internal.extensions.deactivate', $extension));
+
+        $response->assertStatus(403);
+        $this->assertTrue($extension->fresh()->is_active);
+    }
+
+    public function test_user_can_get_sip_credentials_for_own_extension(): void
+    {
+        $user = User::factory()->create();
+        $extension = Extension::factory()->create([
+            'user_id' => $user->id,
+            'password' => 'secret123',
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('internal.extensions.sip-credentials', $extension));
+
+        $response->assertStatus(200);
+        $response->assertJson(['password' => 'secret123']);
+    }
+
+    public function test_user_cannot_get_sip_credentials_for_another_users_extension(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $extension = Extension::factory()->create(['user_id' => $owner->id]);
+
+        $response = $this->actingAs($other)->getJson(route('internal.extensions.sip-credentials', $extension));
+
+        $response->assertStatus(403);
+    }
 }

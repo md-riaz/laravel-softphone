@@ -59,21 +59,21 @@ class ExtensionController extends Controller
         return response()->json($extensions);
     }
 
-    public function activate(Extension $extension): JsonResponse
+    public function activate(Request $request, Extension $extension): JsonResponse
     {
-        $user = $extension->user;
+        if ($extension->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
-        if ($user) {
-            $activeCount = Extension::where('user_id', $user->id)
-                ->where('is_active', true)
-                ->where('id', '!=', $extension->id)
-                ->count();
+        $activeCount = Extension::where('user_id', $request->user()->id)
+            ->where('is_active', true)
+            ->where('id', '!=', $extension->id)
+            ->count();
 
-            if ($activeCount >= 6) {
-                return response()->json([
-                    'message' => 'Maximum of 6 active extensions per user.',
-                ], 422);
-            }
+        if ($activeCount >= 6) {
+            return response()->json([
+                'message' => 'Maximum of 6 active extensions per user.',
+            ], 422);
         }
 
         $extension->update(['is_active' => true]);
@@ -81,10 +81,23 @@ class ExtensionController extends Controller
         return response()->json(['message' => 'Extension activated.', 'extension' => $extension]);
     }
 
-    public function deactivate(Extension $extension): JsonResponse
+    public function deactivate(Request $request, Extension $extension): JsonResponse
     {
+        if ($extension->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $extension->update(['is_active' => false, 'is_registered' => false]);
 
         return response()->json(['message' => 'Extension deactivated.', 'extension' => $extension]);
+    }
+
+    public function sipCredentials(Request $request, Extension $extension): JsonResponse
+    {
+        if ($extension->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        return response()->json(['password' => $extension->password]);
     }
 }
